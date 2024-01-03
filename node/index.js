@@ -1,36 +1,60 @@
 const express = require('express');
+const mysql = require('mysql');
 const app = express();
 const port = 3000;
-
-const config = {
+const dbConfig = {
     host: 'db',
     user: 'root',
     password: 'root',
     database: 'nodedb'
 };
-const mysql = require('mysql')
-const connection = mysql.createConnection(config)
+const poolConnection = mysql.createPool(dbConfig);
 
-const createTableQuery = 
-`CREATE TABLE IF NOT EXISTS people (
-    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL
-)`;
-connection.query(createTableQuery)
+function createTable() {
+    const createTableQuery = `
+        CREATE TABLE IF NOT EXISTS people (
+            id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL
+        )`;
+    poolConnection.query(createTableQuery, (err) => {
+        if (err) throw err;
+        console.log('Tabela "people" criada ou já existente.');
+    });
+}
 
-app.get('/', (req,res) => {
-    const insertQuery = `INSERT INTO people (name) VALUES ('Kelvin Custódio')`;
-    connection.query(insertQuery);
+function insertNameData() {
+    const nameData = 'Kelvin Custódo';
+    const insertQuery = `INSERT INTO people (name) VALUES ('${nameData}')`;
+    poolConnection.query(insertQuery);
+}
+
+function fetchPeopleData(callback) {
     const selectQuery = `SELECT * FROM people`;
-    connection.query(selectQuery, (err, results) => {
-        let output = '<h1>Full Cycle Rocks!</h1>';
-        output += '<ul>';
-        results.forEach((row) => {
-                output += `<li>${row.id} - ${row.name}</li>`;
-            });
-            output += '</ul>';
-            res.send(output);
-        });
+    poolConnection.query(selectQuery, (err, results) => {
+        if (err) throw err;
+        callback(results);
+    });
+}
+
+function buildHtmlResponse(data) {
+    let output = '<h1>Full Cycle Rocks!</h1>';
+    output += '<ul>';
+    data.forEach((row) => {
+        output += `<li>${row.id} - ${row.name}</li>`;
+    });
+    output += '</ul>';
+    return output;
+}
+
+app.get('/', (req, res) => {
+    insertNameData();
+    fetchPeopleData((results) => {
+        const responseHtml = buildHtmlResponse(results);
+        res.send(responseHtml);
+    });
 });
 
-app.listen(port)
+app.listen(port, () => {
+    console.log(`Servidor escutando na porta: ${port}`);
+    createTable();
+});
