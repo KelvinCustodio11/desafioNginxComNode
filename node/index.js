@@ -11,34 +11,23 @@ const dbConfig = {
 const poolConnection = mysql.createPool(dbConfig);
 
 function createTable() {
-    return new Promise((resolve, reject) => {
-        const createTableQuery = `
-            CREATE TABLE IF NOT EXISTS people (
-                id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                name VARCHAR(255) NOT NULL
-            )`;
-        poolConnection.query(createTableQuery, (error) => {
-            error ? reject(error) : resolve();
-        });
-    });
+    const createTableQuery = `
+        CREATE TABLE IF NOT EXISTS people (
+            id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL
+        )`;
+    return queryWithPromise(createTableQuery, poolConnection);
 }
 
 function insertNameData() {
-    return new Promise((resolve, reject) => {
-        const insertQuery = `INSERT INTO people (name) VALUES ('Kelvin Custódio')`;
-        poolConnection.query(insertQuery, (error) => {
-            error ? reject(error) : resolve();
-        });
-    });
+    const name = 'Kelvin Custódio';
+    const insertQuery = `INSERT INTO people (name) VALUES ('${name}')`;
+    return queryWithPromise(insertQuery, poolConnection);
 }
 
 function fetchPeopleData() {
-    return new Promise((resolve, reject) => {
-        const selectQuery = `SELECT * FROM people`;
-        poolConnection.query(selectQuery, (error, results) => {
-            error ? reject(error) : resolve(results);
-        });
-    });
+    const selectQuery = `SELECT * FROM people`;
+    return queryWithPromise(selectQuery, poolConnection);
 }
 
 function buildHtmlResponse(data) {
@@ -51,16 +40,22 @@ function buildHtmlResponse(data) {
     return output;
 }
 
+function queryWithPromise(query, connection) {
+    return new Promise((resolve, reject) => {
+        connection.query(query, (error, results) => {
+            error ? reject(error) : resolve(results);
+        });
+    });
+}
+
 app.get('/', async (req, res) => {
     try {
-        await createTable();
         await insertNameData();
         const results = await fetchPeopleData();
         const responseHtml = buildHtmlResponse(results);
         res.send(responseHtml);
     } catch (error) {
-        console.error('Erro:', error);
-        res.status(500).send('Erro interno do servidor');
+        res.status(500).send(error);
     }
 });
 
@@ -69,6 +64,6 @@ app.listen(port, async () => {
         console.log(`Servidor escutando na porta ${port}`);
         await createTable();
     } catch (error) {
-        console.error('Erro:', error);
+        res.status(500).send(error);
     }
 });
